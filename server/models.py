@@ -1,14 +1,19 @@
-from flask_sqlalchemy import SQLAlchemy
+from db import db
 from sqlalchemy.orm import validates
-db = SQLAlchemy()
 
-class Excercise(db.Model):
+
+class Exercise(db.Model):
     __tablename__ = 'exercises'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     category = db.Column(db.String, nullable=False)
     equipment_needed = db.Column(db.Boolean, nullable=False)
 
+    # Relationships
+    workout_exercises = db.relationship('WorkoutExercise', back_populates='exercise', cascade='all, delete-orphan')
+    workouts = db.relationship('Workout', secondary='workout_exercises', back_populates='exercises', viewonly=True)
+
+    # Validations
     @validates('name', 'category', 'equipment_needed')
     def validate_not_empty(self, key, value):
         if key == 'equipment_needed':
@@ -18,7 +23,7 @@ class Excercise(db.Model):
             if not value or not value.strip():
                 raise ValueError(f"{key} cannot be empty")
         return value
-    
+
 
 class Workout(db.Model):
     __tablename__ = 'workouts'
@@ -27,17 +32,26 @@ class Workout(db.Model):
     duration_minutes = db.Column(db.Integer, nullable=False)
     notes = db.Column(db.Text, nullable=True)
 
-    workout_exercises = db.relationship('WorkoutExcercise', back_populates='workout', cascade='all, delete-orphan')
+    # Relationships
+    workout_exercises = db.relationship('WorkoutExercise', back_populates='workout', cascade='all, delete-orphan')
+    exercises = db.relationship('Exercise', secondary='workout_exercises', back_populates='workouts', viewonly=True)
 
-    exercises = db.relationship('Excercise', secondary='workout_exercises', back_populates='workouts', viewonly=True)
-
-    @validates('date', 'duration_minutes')
-    def validate_not_empty(self, key, value):
-        if not value:
-            raise ValueError(f"{key} cannot be empty")
+    # Validations
+    @validates('date')
+    def validate_date(self, key, value):
+        from datetime import date
+        if not isinstance(value, date):
+            raise ValueError("date must be a datetime.date object")
         return value
-    
-class WorkoutExcercise(db.Model):
+
+    @validates('duration_minutes')
+    def validate_duration(self, key, value):
+        if value <= 0:
+            raise ValueError("duration_minutes must be greater than 0")
+        return value
+
+
+class WorkoutExercise(db.Model):
     __tablename__ = 'workout_exercises'
     id = db.Column(db.Integer, primary_key=True)
     workout_id = db.Column(db.Integer, db.ForeignKey('workouts.id'), nullable=False)
@@ -46,8 +60,16 @@ class WorkoutExcercise(db.Model):
     sets = db.Column(db.Integer, nullable=True)
     duration_seconds = db.Column(db.Integer, nullable=True)
 
+    # Table Constraints
+    __table_args__ = (
+        db.UniqueConstraint('workout_id', 'exercise_id', name='uix_workout_exercise'),
+        db.CheckConstraint("sets>0", name="check_sets_positive"),
+        db.CheckConstraint("reps>0", name="check_reps_positive"),
+    )
+
+    # Relationships
     workout = db.relationship('Workout', back_populates='workout_exercises')
-    exercise = db.relationship('Excercise', back_populates='workout_exercises')
+    exercise = db.relationship('Exercise', back_populates='workout_exercises')
 
     def to_dict(self):
         return {
@@ -59,4 +81,5 @@ class WorkoutExcercise(db.Model):
             'duration_seconds': self.duration_seconds,
         }
 
-db.create_all()
+
+
