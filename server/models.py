@@ -27,6 +27,10 @@ class Workout(db.Model):
     duration_minutes = db.Column(db.Integer, nullable=False)
     notes = db.Column(db.Text, nullable=True)
 
+    workout_exercises = db.relationship('WorkoutExcercise', back_populates='workout', cascade='all, delete-orphan')
+
+    exercises = db.relationship('Excercise', secondary='workout_exercises', back_populates='workouts', viewonly=True)
+
     @validates('date', 'duration_minutes')
     def validate_not_empty(self, key, value):
         if not value:
@@ -41,7 +45,10 @@ class WorkoutExcercise(db.Model):
     reps = db.Column(db.Integer, nullable=True)
     sets = db.Column(db.Integer, nullable=True)
     duration_seconds = db.Column(db.Integer, nullable=True)
-    
+
+    workout = db.relationship('Workout', back_populates='workout_exercises')
+    exercise = db.relationship('Excercise', back_populates='workout_exercises')
+
     def to_dict(self):
         return {
             'id': self.id,
