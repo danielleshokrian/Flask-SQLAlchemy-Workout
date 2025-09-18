@@ -96,7 +96,7 @@ Add an exercise to a workout. Example JSON payload:
   "duration_seconds": 60
 }
 
-## Notes
+## sNotes
 
 Dates must be valid Python date objects (YYYY-MM-DD).
 
